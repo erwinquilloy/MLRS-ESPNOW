@@ -382,6 +382,11 @@ void setup_wifi_udp(void) {
     WiFi.disconnect();
     delay(50);
 
+    // Let the ESP32 IDF handle transient drops instead of tearing down
+    // our UDP state on every brief disassoc (e.g. when a 2nd client joins).
+    WiFi.persistent(true);
+    WiFi.setAutoReconnect(true);
+
     char l2[24];
     snprintf(l2, sizeof(l2), "SSID:%s", WIFI_SSID);
     oled_status("Connecting...", l2);
@@ -447,17 +452,26 @@ void loop() {
         return;
     }
 
-    // If the AP drops, reconnect.
+    // If the AP drops, give it a short grace window before tearing
+    // down. A new station associating to the Nomad's SoftAP can briefly
+    // disrupt our link; the IDF auto-reconnect usually recovers within
+    // a second or two, so we only do a hard re-init if WiFi stays down
+    // for longer than that.
+    static unsigned long wifi_down_t0 = 0;
+    unsigned long tnow_ms = millis();
     if (WiFi.status() != WL_CONNECTED) {
-        udp.stop();
-        udp_peer_latched = false;
-        is_connected     = false;
-        telem_gps_ok     = false;
-        wifi_initialized = false;
+        if (wifi_down_t0 == 0) wifi_down_t0 = tnow_ms;
+        if (tnow_ms - wifi_down_t0 > 3000) {
+            udp.stop();
+            udp_peer_latched = false;
+            is_connected     = false;
+            telem_gps_ok     = false;
+            wifi_initialized = false;
+            wifi_down_t0     = 0;
+        }
         return;
     }
-
-    unsigned long tnow_ms = millis();
+    wifi_down_t0 = 0;
 
     // Connection timeout (no packets for 2 s)
     if (is_connected && (tnow_ms - is_connected_tlast_ms > 2000)) {
