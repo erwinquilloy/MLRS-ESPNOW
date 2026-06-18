@@ -37,9 +37,9 @@
 // USER CONFIGURATION
 //-------------------------------------------------------
 
-// mLRS Nomad WiFi AP defaults. Override here if you changed them.
-#define WIFI_SSID       "mLRS AP"
-#define WIFI_PASS       "thisisgreat"
+// Set these to match your mLRS Nomad's WiFi Bridge (UDP mode) settings.
+#define WIFI_SSID       ""
+#define WIFI_PASS       ""
 #define UDP_PORT        14550
 
 #define CROSSBOW_BAUD   115200
