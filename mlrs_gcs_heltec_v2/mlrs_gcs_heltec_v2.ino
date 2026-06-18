@@ -628,7 +628,11 @@ void setup_udp(void) {
         }
     }
 
-    udp.begin(UDP_PORT);
+    int udp_ok = udp.begin(UDP_PORT);
+    Serial.print("[udp] begin(");
+    Serial.print(UDP_PORT);
+    Serial.print(") -> ");
+    Serial.println(udp_ok);
 
     IPAddress ip = WiFi.localIP();
     IPAddress gw = WiFi.gatewayIP();
