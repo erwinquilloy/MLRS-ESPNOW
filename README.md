@@ -44,16 +44,20 @@ The choice is persisted to NVS via `Preferences`, so it survives reboots.
 
 - Heltec joins the Nomad's SoftAP. The Nomad generates an SSID from its MAC
   in the form `mLRS-xxxx AP UDP` - check your Tx OLED/CLI for the exact name
-  and put it in `WIFI_SSID` at the top of `mlrs_udp_gcs_heltec_v2.ino`.
+  and put it in `WIFI_SSID` at the top of the sketch.
 - **UDP mode has no password by default** per the
   [mLRS wireless-bridge docs](https://github.com/olliw42/mLRS-docu/blob/main/docs/WIRELESS_BRIDGE.md),
   so leave `WIFI_PASS` empty unless you've explicitly set one on the Nomad.
 - Listens on UDP port `14550` and latches the first peer's IP/port for uplink.
-- Multiple GCS clients (e.g. a phone running QGC + this bridge) can attach to
-  the same Nomad AP simultaneously. Be aware that if more than one client
-  sends commands, the uplink streams interleave at the radio - it's a
-  coordination problem, not a connectivity one.
-- Auto-reconnects if the AP drops.
+- **Co-exists with a phone/laptop GCS.** The mLRS bridge only sends downlink
+  to UDP clients it has seen send a packet first (otherwise the Heltec would
+  silently fall off the unicast list the moment a phone running QGC
+  registered itself). The sketch sends a MAVLink HEARTBEAT to the Nomad once
+  a second so the bridge keeps the Heltec in its `clients[]` table. If DHCP
+  doesn't advertise a gateway, the heartbeat target falls back to the `.1`
+  host of our `/24` subnet (the typical mLRS SoftAP address).
+- Auto-reconnects if the AP drops, with a 3 s grace window so a brief
+  disassoc (e.g. another client joining) doesn't tear down our UDP state.
 
 ## Hardware
 
@@ -69,10 +73,22 @@ The choice is persisted to NVS via `Preferences`, so it survives reboots.
 | ---------- | ----------- |
 | `GPIO17` (TX2) | Crossbow MAVLink input |
 | `GND`          | Crossbow GND |
-| micro-USB      | 5 V power |
+| 5 V in         | USB or a dedicated UBEC (see Power below) |
 
 UART RX is intentionally disabled (`-1`) so that **GPIO16** stays free as the
 OLED reset line.
+
+### Power
+
+The sketches all run TX at the full 19.5 dBm (~100 mW), which has a peak
+current draw that **the MFD Mini Crossbow's 5 V output cannot reliably
+supply** - powering the Heltec from the Crossbow's rail will reset the
+ESP32 with a `BROWNOUT` reset reason during WiFi TX bursts (ESP-NOW is
+gentler than UDP, but neither is safe).
+
+Use **USB** during bench testing and a **dedicated 1 A UBEC** off the
+flight battery for field use. Tie the UBEC's ground to the Crossbow's
+ground so the UART signal levels stay correct.
 
 ## mLRS Nomad (Tx) setup
 
@@ -80,6 +96,7 @@ The Nomad's WiFi Bridge mode **must match the sketch you flash**:
 
 | Sketch you flash | Nomad WiFi Bridge mode |
 | ---------------- | ---------------------- |
+| `mlrs_gcs_heltec_v2` (combined) | match the **active mode** the Heltec is currently in (`ESP-NOW` or `WiFi UDP`) - toggle one to match the other |
 | `mlrs_espnow_gcs_heltec_v2` | `ESP-NOW` |
 | `mlrs_udp_gcs_heltec_v2`    | `WiFi UDP` |
 
