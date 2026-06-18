@@ -45,6 +45,22 @@ is also rendered on the board's built-in SSD1306 OLED.
 UART RX is intentionally disabled (`-1`) so that **GPIO16** stays free as the
 OLED reset line.
 
+## mLRS Nomad (Tx) setup
+
+On the Nomad transmitter, the WiFi Bridge mode **must be set to `ESP-NOW`**
+(not `WiFi UDP` / `WiFi TCP`). The Heltec only listens on ESP-NOW and will
+never latch onto a Nomad that's broadcasting over UDP.
+
+Quick path via the OLED menu:
+
+```
+Setup -> WiFi Bridge -> Mode -> ESP-NOW
+```
+
+After changing the mode, reboot the Nomad so the new radio mode takes effect.
+The Heltec's channel auto-scan (1 / 6 / 11 / 13) will then pick the Nomad up
+within a few seconds.
+
 ## Build & flash
 
 ### Arduino IDE
