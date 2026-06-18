@@ -43,6 +43,41 @@ The choice is persisted to NVS via `Preferences`, so it survives reboots.
 - Link status indicator (`LINK OK` / `NO DATA` / `waiting`) based on packet
   recency.
 
+## OLED layout
+
+Once the link is up, the 128x64 SSD1306 shows seven lines of telemetry,
+refreshed every 200 ms:
+
+```
+MANUAL  ARM S:12 ARDU      <- flight mode | arm state | sats | autopilot
+Lat: 14.123456             <- latitude  (or "Fix:Nd No GPS" if no fix)
+Lon:121.654321             <- longitude (or blank             if no fix)
+Alt:  42m GS: 18           <- altitude (m) and ground speed (m/s)
+Hdg: 87 deg                <- heading (deg)
+Bat:11.8V  87%             <- battery voltage and remaining %
+RSSI: 73% LINK OK          <- mLRS RSSI (0-100%) and link state
+```
+
+| Field | Source MAVLink message | Notes |
+| ----- | ---------------------- | ----- |
+| Flight mode  | `HEARTBEAT.custom_mode`     | Mapped to ArduPilot or iNav name table depending on autopilot autodetect |
+| Arm state    | `HEARTBEAT.base_mode` bit 7 | `ARM` if armed, `dis` otherwise |
+| Sats         | `GPS_RAW_INT.satellites_visible` | Satellite count |
+| Autopilot    | `HEARTBEAT.autopilot`       | `ARDU` (ArduPilot=3) / `iNAV` (iNav=12) / `?` until first HEARTBEAT |
+| Lat / Lon    | `GLOBAL_POSITION_INT.lat/lon` | Degrees, 6 dp; falls back to "Fix:Nd No GPS" using `GPS_RAW_INT.fix_type` when no GPS lock |
+| Alt          | `GLOBAL_POSITION_INT.alt`   | Metres above sea level (mm in MAVLink, converted) |
+| GS           | `GLOBAL_POSITION_INT.vx/vy` | Ground speed from horizontal velocity vector |
+| Hdg          | `GLOBAL_POSITION_INT.hdg`   | Compass heading in degrees |
+| Bat V        | `SYS_STATUS.voltage_battery` | Volts |
+| Bat %        | `SYS_STATUS.battery_remaining` | 0-100 %, hidden if -1 (unknown) |
+| RSSI         | `RADIO_STATUS.rssi`          | mLRS reports 0-100% directly (not 0-254 SiK); `---` if unknown |
+| Link state   | derived                      | `LINK OK` if a packet arrived in the last 2 s, else `NO DATA` (after first data) or `waiting` (before any data) |
+
+Before any telemetry arrives, the same area shows status messages
+instead - e.g. `Scanning for mLRS bridge...`, `Connecting...`,
+`UDP:14550 waiting`, or the boot splash with the current persisted
+mode and PRG hold prompt.
+
 ## ESP-NOW variant specifics
 
 - Channel auto-scan (1 / 6 / 11 / 13) until an mLRS bridge is found.
