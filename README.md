@@ -2,12 +2,19 @@
 
 Heltec WiFi Kit 32 firmware that bridges an mLRS Nomad to an
 **MFD Mini Crossbow** OSD over UART, with live telemetry on the onboard
-SSD1306 OLED. Two link-layer variants are provided in this repo:
+SSD1306 OLED. Three sketches are provided:
 
 | Sketch folder | Link to Nomad | When to use |
 | ------------- | ------------- | ----------- |
-| `mlrs_espnow_gcs_heltec_v2/` | ESP-NOW (raw 802.11) | Longest range, lowest latency, point-to-point |
-| `mlrs_udp_gcs_heltec_v2/` | WiFi UDP (joins Nomad SoftAP) | Lets phone/laptop GCSs co-exist on the same AP |
+| `mlrs_gcs_heltec_v2/` (recommended) | **Either** - selectable at runtime via the PRG button | Day-to-day; flash once and toggle without re-flashing |
+| `mlrs_espnow_gcs_heltec_v2/` | ESP-NOW (raw 802.11) | Reference sketch for the ESP-NOW link layer alone |
+| `mlrs_udp_gcs_heltec_v2/` | WiFi UDP (joins Nomad SoftAP) | Reference sketch for the WiFi-UDP link layer alone |
+
+The combined sketch defaults to **WiFi UDP** on a fresh flash. To toggle:
+power-cycle and **hold the onboard PRG button (GPIO0) for the entire boot
+splash (~2.5 s)** - the OLED tells you what mode it's currently in and
+counts down. Release before the splash ends to keep the current mode.
+The choice is persisted to NVS via `Preferences`, so it survives reboots.
 
 ```
    mLRS Nomad ──ESP-NOW or WiFi UDP──▶ Heltec WiFi Kit 32 ──UART──▶ MFD Mini Crossbow
@@ -93,8 +100,9 @@ After changing the mode, reboot the Nomad so the new radio mode takes effect.
    - Adafruit SSD1306
    - Adafruit GFX Library
 3. Board: **ESP32 Arduino -> Heltec WiFi Kit 32**.
-4. Open the `.ino` for the variant you want (`mlrs_espnow_gcs_heltec_v2/...`
-   or `mlrs_udp_gcs_heltec_v2/...`), then Upload.
+4. Open the `.ino` for the sketch you want - normally
+   `mlrs_gcs_heltec_v2/mlrs_gcs_heltec_v2.ino` (combined, runtime-toggleable),
+   or one of the reference single-mode sketches - then Upload.
 
 ### Configurable defaults
 
