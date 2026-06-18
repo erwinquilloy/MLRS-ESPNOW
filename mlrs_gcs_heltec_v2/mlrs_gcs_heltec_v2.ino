@@ -551,11 +551,12 @@ void setup_udp(void) {
     WiFi.persistent(true);
     WiFi.setAutoReconnect(true);
 
-    // Brownout mitigation: match the ESP-NOW radio config (11b) and cap
-    // TX power so peak current stays inside the Crossbow 5V regulator's
-    // budget. Plenty of margin at GCS distances.
+    // Force 802.11b (flatter TX envelope, matches the ESP-NOW path) and
+    // use the maximum 19.5 dBm TX power. The earlier brownout we saw on
+    // the Crossbow 5 V rail can return at this power level - use USB or a
+    // dedicated UBEC for the Heltec if that's an issue.
     esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B);
-    WiFi.setTxPower(WIFI_POWER_11dBm);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
 
     char l2[24];
     snprintf(l2, sizeof(l2), "SSID:%s", WIFI_SSID);

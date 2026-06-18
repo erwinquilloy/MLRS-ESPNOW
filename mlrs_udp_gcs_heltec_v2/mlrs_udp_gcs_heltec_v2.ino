@@ -389,11 +389,12 @@ void setup_wifi_udp(void) {
     WiFi.persistent(true);
     WiFi.setAutoReconnect(true);
 
-    // Brownout mitigation: force 802.11b (flatter TX envelope, matches the
-    // ESP-NOW sketch) and cap TX power at 11 dBm. ~30% of stock peak draw,
-    // still ~15 dB of link margin to the Nomad at 15-20 m.
+    // Force 802.11b for a flatter TX envelope (matches the ESP-NOW sketch).
+    // TX power is set to the maximum 19.5 dBm. Note: this can re-trigger the
+    // Crossbow-5V brownout we saw earlier - use USB or a dedicated UBEC if
+    // you hit reboots powered from the Crossbow's rail.
     esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B);
-    WiFi.setTxPower(WIFI_POWER_11dBm);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
 
     char l2[24];
     snprintf(l2, sizeof(l2), "SSID:%s", WIFI_SSID);
