@@ -523,6 +523,26 @@ void loop() {
         udp.endPacket();
     }
 
+    // Presence ping: the mLRS bridge only sends UDP downlink to clients
+    // it has seen send something inbound. While we're the only client
+    // it broadcasts (so we receive), but as soon as a second GCS (e.g.
+    // a laptop) sends a heartbeat the bridge switches to unicast-to-
+    // registered-clients and we fall off the list. Sending a 1-byte UDP
+    // ping once a second keeps us in clients[] (Add() dedupes, so this
+    // is safe to spam). The byte is 0x00, which the mLRS MAVLink parser
+    // discards while waiting for the STX (0xFE/0xFD).
+    static unsigned long ping_t = 0;
+    if (tnow_ms - ping_t >= 1000) {
+        ping_t = tnow_ms;
+        IPAddress dest = udp_peer_latched ? udp_peer_ip : WiFi.gatewayIP();
+        if (dest[0] != 0) {
+            uint8_t pingbyte = 0x00;
+            udp.beginPacket(dest, UDP_PORT);
+            udp.write(&pingbyte, 1);
+            udp.endPacket();
+        }
+    }
+
     // OLED refresh
     static unsigned long oled_t = 0;
     if (tnow_ms - oled_t >= OLED_UPDATE_MS) {
