@@ -1,23 +1,23 @@
 # MLRS-ESPNOW
 
-ESP-NOW firmware for an mLRS ground-side bridge.
+Heltec WiFi Kit 32 firmware that bridges an mLRS Nomad to an
+**MFD Mini Crossbow** OSD over UART, with live telemetry on the onboard
+SSD1306 OLED. Two link-layer variants are provided in this repo:
 
-`mlrs_espnow_gcs_heltec_v2` runs on a **Heltec WiFi Kit 32 (v1/v2)** and turns it
-into a wireless link between an mLRS Nomad (transmitting MAVLink over ESP-NOW)
-and an **MFD Mini Crossbow** OSD (consuming MAVLink over UART). Live telemetry
-is also rendered on the board's built-in SSD1306 OLED.
+| Sketch folder | Link to Nomad | When to use |
+| ------------- | ------------- | ----------- |
+| `mlrs_espnow_gcs_heltec_v2/` | ESP-NOW (raw 802.11) | Longest range, lowest latency, point-to-point |
+| `mlrs_udp_gcs_heltec_v2/` | WiFi UDP (joins Nomad SoftAP) | Lets phone/laptop GCSs co-exist on the same AP |
 
 ```
-   mLRS Nomad ──ESP-NOW──▶ Heltec WiFi Kit 32 ──UART──▶ MFD Mini Crossbow
-                                  │
-                                  └── SSD1306 OLED (telemetry HUD)
+   mLRS Nomad ──ESP-NOW or WiFi UDP──▶ Heltec WiFi Kit 32 ──UART──▶ MFD Mini Crossbow
+                                              │
+                                              └── SSD1306 OLED (telemetry HUD)
 ```
 
-## Features
+## Features (common to both variants)
 
-- Bidirectional MAVLink bridge (downlink + uplink) between ESP-NOW and UART.
-- Channel auto-scan (1 / 6 / 11 / 13) until an mLRS bridge is found.
-- Sender MAC latching so only the paired bridge is accepted.
+- Bidirectional MAVLink bridge (downlink + uplink).
 - Built-in MAVLink v1/v2 parser (no MAVLink library dependency).
 - Decoded telemetry on OLED: flight mode, arm state, GPS fix/sats, lat/lon,
   altitude, ground speed, heading, battery V/%, and RSSI %.
@@ -26,13 +26,31 @@ is also rendered on the board's built-in SSD1306 OLED.
 - Link status indicator (`LINK OK` / `NO DATA` / `waiting`) based on packet
   recency.
 
+## ESP-NOW variant specifics
+
+- Channel auto-scan (1 / 6 / 11 / 13) until an mLRS bridge is found.
+- Sender MAC latching so only the paired bridge is accepted.
+- WiFi country locked to `EU` (channels 1-13), radio forced to `802.11b` for
+  maximum range.
+
+## WiFi UDP variant specifics
+
+- Heltec joins the Nomad's SoftAP (default SSID `mLRS AP`, password
+  `thisisgreat`).
+- Listens on UDP port `14550` and latches the first peer's IP/port for uplink.
+- Multiple GCS clients (e.g. a phone running QGC + this bridge) can attach to
+  the same Nomad AP simultaneously. Be aware that if more than one client
+  sends commands, the uplink streams interleave at the radio - it's a
+  coordination problem, not a connectivity one.
+- Auto-reconnects if the AP drops.
+
 ## Hardware
 
 | Item | Notes |
 | ---- | ----- |
 | Heltec WiFi Kit 32 | v1 or v2 (micro-USB variants); both share the same OLED pinout used here |
 | MFD Mini Crossbow OSD | MAVLink input @ 115200 8N1 |
-| mLRS Nomad | Configured as the ESP-NOW bridge counterpart |
+| mLRS Nomad | Configured as the matching bridge counterpart (see below) |
 
 ### Wiring
 
@@ -47,34 +65,36 @@ OLED reset line.
 
 ## mLRS Nomad (Tx) setup
 
-On the Nomad transmitter, the WiFi Bridge mode **must be set to `ESP-NOW`**
-(not `WiFi UDP` / `WiFi TCP`). The Heltec only listens on ESP-NOW and will
-never latch onto a Nomad that's broadcasting over UDP.
+The Nomad's WiFi Bridge mode **must match the sketch you flash**:
+
+| Sketch you flash | Nomad WiFi Bridge mode |
+| ---------------- | ---------------------- |
+| `mlrs_espnow_gcs_heltec_v2` | `ESP-NOW` |
+| `mlrs_udp_gcs_heltec_v2`    | `WiFi UDP` |
 
 Quick path via the OLED menu:
 
 ```
-Setup -> WiFi Bridge -> Mode -> ESP-NOW
+Setup -> WiFi Bridge -> Mode -> <ESP-NOW | WiFi UDP>
 ```
 
 After changing the mode, reboot the Nomad so the new radio mode takes effect.
-The Heltec's channel auto-scan (1 / 6 / 11 / 13) will then pick the Nomad up
-within a few seconds.
 
 ## Build & flash
 
 ### Arduino IDE
 
-1. Install the **ESP32 Arduino core ≥ 3.0.0** via Boards Manager.
+1. Install the **ESP32 Arduino core >= 3.0.0** via Boards Manager.
 2. Install these libraries via Library Manager:
    - Adafruit SSD1306
    - Adafruit GFX Library
-3. Board: **ESP32 Arduino → Heltec WiFi Kit 32**.
-4. Open `mlrs_espnow_gcs_heltec_v2/mlrs_espnow_gcs_heltec_v2.ino`, then Upload.
+3. Board: **ESP32 Arduino -> Heltec WiFi Kit 32**.
+4. Open the `.ino` for the variant you want (`mlrs_espnow_gcs_heltec_v2/...`
+   or `mlrs_udp_gcs_heltec_v2/...`), then Upload.
 
 ### Configurable defaults
 
-Set at the top of the `.ino`:
+Set at the top of each `.ino`:
 
 | Define | Default | Purpose |
 | ------ | ------- | ------- |
@@ -84,8 +104,13 @@ Set at the top of the `.ino`:
 | `OLED_SDA` / `OLED_SCL` / `OLED_RST` | `4` / `15` / `16` | OLED I2C pins (Heltec defaults) |
 | `OLED_ADDR` | `0x3C` | SSD1306 I2C address |
 
-The WiFi country is locked to `EU` (channels 1-13) and the radio is forced to
-`802.11b` for maximum ESP-NOW range.
+UDP variant adds:
+
+| Define | Default | Purpose |
+| ------ | ------- | ------- |
+| `WIFI_SSID` | `"mLRS AP"` | Nomad SoftAP SSID |
+| `WIFI_PASS` | `"thisisgreat"` | Nomad SoftAP password |
+| `UDP_PORT` | `14550` | MAVLink UDP port |
 
 ## Supported MAVLink messages
 
