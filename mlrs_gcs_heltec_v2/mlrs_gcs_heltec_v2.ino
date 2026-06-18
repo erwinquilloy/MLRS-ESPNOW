@@ -119,6 +119,13 @@ struct MavPacket {
     uint8_t  payload_len;
 };
 
+// Explicit prototypes so Arduino's auto-prototype generator (which inserts
+// prototypes near the top of the .ino, sometimes above the MavPacket
+// forward declaration) doesn't try to synthesise its own broken ones for
+// these functions.
+bool mav_parse_byte(uint8_t c, MavPacket& pkt);
+void process_mavlink_packet(MavPacket& pkt);
+
 enum MavParseState { WAIT_STX, IN_HEADER, IN_PAYLOAD, IN_CRC };
 
 static MavParseState parse_state = WAIT_STX;
