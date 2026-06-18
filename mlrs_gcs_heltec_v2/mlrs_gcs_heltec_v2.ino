@@ -126,6 +126,39 @@ struct MavPacket {
 bool mav_parse_byte(uint8_t c, MavPacket& pkt);
 void process_mavlink_packet(MavPacket& pkt);
 
+// MAVLink CRC-16 (X.25), used to build our presence-ping HEARTBEAT.
+inline uint16_t mav_crc_accumulate(uint8_t data, uint16_t crc) {
+    uint8_t tmp = data ^ (uint8_t)(crc & 0xff);
+    tmp ^= (tmp << 4);
+    return ((crc >> 8) ^ ((uint16_t)tmp << 8) ^ ((uint16_t)tmp << 3) ^ ((uint16_t)tmp >> 4));
+}
+
+// Build a MAVLink v1 HEARTBEAT from a GCS endpoint. Returns packet length.
+// sys_id=255, comp_id=190 is the conventional GCS identity (Mission Planner).
+int build_gcs_heartbeat(uint8_t* out, uint8_t seq) {
+    out[0] = 0xFE;        // STX (MAVLink v1)
+    out[1] = 9;           // payload length
+    out[2] = seq;         // sequence
+    out[3] = 255;         // sys_id (GCS)
+    out[4] = 190;         // comp_id (MISSION_PLANNER)
+    out[5] = 0;           // msg_id = HEARTBEAT
+    // payload: u32 custom_mode, u8 type, u8 autopilot, u8 base_mode,
+    //          u8 system_status, u8 mavlink_version
+    out[6]  = 0; out[7] = 0; out[8] = 0; out[9] = 0;  // custom_mode = 0
+    out[10] = 6;          // type = MAV_TYPE_GCS
+    out[11] = 8;          // autopilot = MAV_AUTOPILOT_INVALID
+    out[12] = 0;          // base_mode
+    out[13] = 4;          // system_status = MAV_STATE_ACTIVE
+    out[14] = 3;          // mavlink_version
+    // CRC over [LEN..end of payload] + HEARTBEAT crc_extra (50)
+    uint16_t crc = 0xFFFF;
+    for (int i = 1; i < 15; i++) crc = mav_crc_accumulate(out[i], crc);
+    crc = mav_crc_accumulate(50, crc);   // HEARTBEAT crc_extra
+    out[15] = (uint8_t)(crc & 0xff);
+    out[16] = (uint8_t)(crc >> 8);
+    return 17;
+}
+
 enum MavParseState { WAIT_STX, IN_HEADER, IN_PAYLOAD, IN_CRC };
 
 static MavParseState parse_state = WAIT_STX;
@@ -842,12 +875,15 @@ void loop_udp(unsigned long tnow_ms) {
         if (dest[0] != 0) {
             if (!ping_logged) {
                 Serial.print("[udp] presence_ping -> ");
-                Serial.println(dest);
+                Serial.print(dest);
+                Serial.println(" (MAVLink HEARTBEAT)");
                 ping_logged = true;
             }
-            uint8_t pingbyte = 0x00;
+            static uint8_t hb_seq = 0;
+            uint8_t hb[17];
+            int hblen = build_gcs_heartbeat(hb, hb_seq++);
             udp.beginPacket(dest, UDP_PORT);
-            udp.write(&pingbyte, 1);
+            udp.write(hb, hblen);
             udp.endPacket();
         }
     }
