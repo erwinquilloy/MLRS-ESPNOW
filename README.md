@@ -51,8 +51,8 @@ refreshed every 200 ms:
 
 ```
 MANUAL  ARM S:12 ARDU      <- flight mode | arm state | sats | autopilot
-Lat: 14.123456             <- latitude  (or "Fix:Nd No GPS" if no fix)
-Lon:121.654321             <- longitude (or blank             if no fix)
+Lat: XX.XXXXXX             <- latitude  (or "Fix:Nd No GPS" if no fix)
+Lon:XXX.XXXXXX             <- longitude (or blank             if no fix)
 Alt:  42m Hdg: 87          <- altitude (m) and heading (deg)
 AS: 14 GS: 18              <- airspeed + ground speed (ArduPlane/VTOL)
                               -- OR --
