@@ -356,9 +356,9 @@ void oled_telem() {
     bool show_as = (fw_type == FW_ARDU) &&
                    (telem_vehicle_type == 1 || telem_vehicle_type == 19);
     if (show_as) {
-        display.printf("AS:%3.0f GS:%3.0f\n", telem_airspeed_ms, telem_spd_ms);
+        display.printf("AS:%3.0f GS:%3.0f m/s\n", telem_airspeed_ms, telem_spd_ms);
     } else {
-        display.printf("GS:%3.0f\n", telem_spd_ms);
+        display.printf("GS:%3.0f m/s\n", telem_spd_ms);
     }
 
     // Line 5: Battery

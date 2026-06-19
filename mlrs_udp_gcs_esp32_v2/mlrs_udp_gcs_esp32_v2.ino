@@ -320,10 +320,10 @@ void serial_telem() {
     bool show_as = (fw_type == FW_ARDU) &&
                    (telem_vehicle_type == 1 || telem_vehicle_type == 19);
     if (show_as) {
-        Serial.printf("alt=%.0fm as=%.0f gs=%.0f hdg=%d ",
+        Serial.printf("alt=%.0fm as=%.0fm/s gs=%.0fm/s hdg=%d ",
             telem_alt_m, telem_airspeed_ms, telem_spd_ms, (int)telem_hdg_deg);
     } else {
-        Serial.printf("alt=%.0fm gs=%.0f hdg=%d ",
+        Serial.printf("alt=%.0fm gs=%.0fm/s hdg=%d ",
             telem_alt_m, telem_spd_ms, (int)telem_hdg_deg);
     }
 

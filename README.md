@@ -54,9 +54,9 @@ MANUAL  ARM S:12 ARDU      <- flight mode | arm state | sats | autopilot
 Lat: XX.XXXXXX             <- latitude  (or "Fix:Nd No GPS" if no fix)
 Lon:XXX.XXXXXX             <- longitude (or blank             if no fix)
 Alt:  42m Hdg: 87          <- altitude (m) and heading (deg)
-AS: 14 GS: 18              <- airspeed + ground speed (ArduPlane/VTOL)
+AS: 14 GS: 18 m/s          <- airspeed + ground speed (ArduPlane/VTOL)
                               -- OR --
-GS: 18                     <- ground speed only (iNav, copter, unknown)
+GS: 18 m/s                 <- ground speed only (iNav, copter, unknown)
 Bat:11.8V  87%             <- battery voltage and remaining %
 RSSI: 73% LINK OK          <- mLRS RSSI (0-100%) and link state
 ```
@@ -71,7 +71,7 @@ RSSI: 73% LINK OK          <- mLRS RSSI (0-100%) and link state
 | Alt          | `GLOBAL_POSITION_INT.alt`   | Metres above sea level (mm in MAVLink, converted) |
 | Hdg          | `GLOBAL_POSITION_INT.hdg`   | Compass heading in degrees |
 | AS           | `VFR_HUD.airspeed`          | Airspeed (m/s). **Only shown for ArduPlane fixed-wing or VTOL** (`HEARTBEAT.type` 1 or 19 + autopilot ArduPilot) - on those the EKF synthesises an airspeed from the wind estimator even without a pitot. On iNav and copters AS is hidden because the field is just a ground-speed mirror or unused |
-| GS           | `GLOBAL_POSITION_INT.vx/vy` | EKF-fused horizontal ground speed (not raw GPS) |
+| GS           | `GLOBAL_POSITION_INT.vx/vy` | EKF-fused horizontal ground speed in m/s (not raw GPS) |
 | Bat V        | `SYS_STATUS.voltage_battery` | Volts |
 | Bat %        | `SYS_STATUS.battery_remaining` | 0-100 %, hidden if -1 (unknown) |
 | RSSI         | `RADIO_STATUS.rssi`          | mLRS reports 0-100% directly (not 0-254 SiK); `---` if unknown |
