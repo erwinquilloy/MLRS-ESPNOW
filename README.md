@@ -32,6 +32,77 @@ The choice is persisted to NVS via `Preferences`, so it survives reboots.
                                               └── SSD1306 OLED (telemetry HUD)
 ```
 
+## How it works
+
+The full chain end-to-end:
+
+```
+   ┌──────────────┐  MAVLink   ┌──────────────┐  mLRS radio   ┌────────────┐
+   │ Flight ctrl  │ ─────────▶ │ mLRS Tx air  │ ─────────────▶│ mLRS Nomad │
+   │ (ArduPilot,  │ ◀───────── │ (vehicle-    │ ◀─────────────│ (ground)   │
+   │  iNav)       │            │  side radio) │               └─────┬──────┘
+   └──────────────┘            └──────────────┘                     │
+                                                                    │ ESP-NOW
+                                                                    │  or WiFi UDP
+                                                                    ▼
+   ┌──────────────────────┐  UART (Serial2, 115200 8N1)   ┌──────────────────┐
+   │ MFD Mini Crossbow    │ ◀────────────────────────────  │ Heltec WiFi Kit  │
+   │ OSD (FPV overlay)    │                                │ 32 (this bridge) │
+   └──────────────────────┘                                └────────┬─────────┘
+                                                                    │ I2C
+                                                                    ▼
+                                                            ┌──────────────┐
+                                                            │ SSD1306 OLED │
+                                                            │ telemetry HUD│
+                                                            └──────────────┘
+```
+
+**1. mLRS handles the long-range link.** The flight controller speaks
+MAVLink over a wired UART to the air-side mLRS radio. mLRS tunnels that
+byte stream over its own RF protocol to the ground-side **Nomad**, which
+re-emits the same MAVLink stream locally. The Nomad's "WiFi Bridge" mode
+picks one of two local transports:
+
+- **ESP-NOW** - raw 802.11 management frames, no association, no DHCP,
+  no encryption negotiation. Lowest latency, single peer at a time, and
+  the radio is forced to `802.11b` for the longest fade margin (we lock
+  the WiFi country to `EU` so channel 13 is allowed too).
+- **WiFi UDP** - standard WiFi: the Nomad runs a SoftAP named
+  `mLRS-xxxx AP UDP`, clients join, MAVLink flows as UDP datagrams on
+  port `14550`. Higher overhead than ESP-NOW but multiple GCS clients
+  (this bridge + a phone running QGC, say) can attach at the same time.
+
+**2. The Heltec acts as a dual-role MAVLink endpoint.** When a packet
+arrives from the Nomad over either transport, it does two things in
+parallel:
+
+- **Forwards the raw bytes verbatim** out `Serial2` (GPIO17 on v1/v2,
+  GPIO33 on v3/v4) to the **MFD Mini Crossbow OSD**, which renders a
+  telemetry overlay onto the analog FPV video feed. The Crossbow gets
+  the full MAVLink stream untouched - every message, not just the ones
+  we care about - so its own OSD logic decides what to draw.
+- **Parses a small subset** itself with a hand-rolled MAVLink v1/v2
+  state machine (no `mavlink.h` dependency - just a byte-level parser
+  that validates STX, length, and CRC) and feeds the decoded fields
+  into the SSD1306 HUD. The seven messages we decode are listed in
+  [Supported MAVLink messages](#supported-mavlink-messages) below;
+  everything else passes straight through to the Crossbow.
+
+**3. The link is bidirectional.** Uplink MAVLink (commands from a GCS
+running on the same UDP AP, or just the periodic HEARTBEAT the WiFi-UDP
+sketch sends to keep itself in the Nomad's `clients[]` table) travels
+back over the same transport to the Nomad, then over the mLRS radio
+link to the flight controller. The Crossbow path is downlink-only -
+UART RX is intentionally left disconnected (`-1`) on Serial2 so the OLED
+reset pin stays free.
+
+**4. The OLED HUD updates on a 200 ms cadence**, independent of packet
+arrival. The parser writes to a shared telemetry struct as messages come
+in; a periodic `oled_update()` redraws the screen from whatever the
+struct currently holds. If packets stop arriving, the values freeze at
+their last seen state and a `LINK OK -> NO DATA` indicator flips after
+2 s of silence.
+
 ## Features (common to both variants)
 
 - Bidirectional MAVLink bridge (downlink + uplink).
